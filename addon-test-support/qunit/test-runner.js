@@ -7,7 +7,11 @@ export default function testFeature(feature, yadda, yaddaAnnotations, library) {
   if (typeof featureAction === 'function') {
     featureAction.call(this, feature);
   } else {
-    module(`Feature: ${feature.title}`, function (featureHooks) {
+    let featureTitle =
+      typeof yaddaAnnotations.setupFeatureTitle === 'function'
+        ? yaddaAnnotations.setupFeatureTitle(feature)
+        : `Feature: ${feature.title}`;
+    module(featureTitle, function (featureHooks) {
       let setupFeature =
         typeof yaddaAnnotations.setupFeature === 'function'
           ? yaddaAnnotations.setupFeature(feature.annotations)
@@ -24,18 +28,29 @@ export default function testFeature(feature, yadda, yaddaAnnotations, library) {
                 scenario.annotations
               )
             : undefined;
+
+        let scenarioTitle = setupScenarioTitle(yaddaAnnotations, scenario);
         if (typeof setupScenario === 'function') {
           // if feature has custom setup, wrap it in another module to use its own beforeEach/afterEach hooks
-          module(`Scenario: ${scenario.title}`, function (scenarioHooks) {
-            setupScenario.call(this, scenarioHooks);
-            testScenario(scenario, feature, yadda, yaddaAnnotations, library);
-          });
+          module(
+            yaddaAnnotations.setupFeatureTitle(feature) ?? scenarioTitle,
+            function (scenarioHooks) {
+              setupScenario.call(this, scenarioHooks);
+              testScenario(scenario, feature, yadda, yaddaAnnotations, library);
+            }
+          );
         } else {
           testScenario(scenario, feature, yadda, yaddaAnnotations, library);
         }
       });
     });
   }
+}
+
+function setupScenarioTitle(yaddaAnnotations, scenario) {
+  return typeof yaddaAnnotations.setupScenarioTitle === 'function'
+    ? yaddaAnnotations.setupScenarioTitle(scenario)
+    : `Scenario: ${scenario.title}`;
 }
 
 function testScenario(scenario, feature, yadda, yaddaAnnotations, library) {
@@ -46,7 +61,8 @@ function testScenario(scenario, feature, yadda, yaddaAnnotations, library) {
   if (typeof scenarioAction === 'function') {
     scenarioAction.apply(this, arguments);
   } else {
-    test(`Scenario: ${scenario.title}`, function (assert) {
+    let scenarioTitle = setupScenarioTitle(yaddaAnnotations, scenario);
+    test(scenarioTitle, function (assert) {
       let self = this;
       return new EmberPromise(function (resolve, reject) {
         yadda
